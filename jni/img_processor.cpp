@@ -17,6 +17,9 @@ using namespace std;
 
 extern "C" {
 
+static IplImage* full_mask;
+static int touch_count = 0;
+
 Mat RegionGrow(Mat src, CvPoint pt, int th);
 typedef enum
 {
@@ -45,15 +48,30 @@ JNIEXPORT jintArray JNICALL Java_com_puzzleworld_onecolor_ImageProcesser_ImgFun(
 	//LOGD("kevin jni value = %d w=%d h=%d touchX = %d touchY= %d", level, w, h, touchX, touchY);
 
 	Mat imgData(h, w, CV_8UC4, (unsigned char*) cbuf);
-	int flags = 4 + (255 << 8) + (CV_FLOODFILL_FIXED_RANGE);
+	int flags = 4 + (255 << 8);
 	IplImage src_data;
 	src_data = IplImage(imgData);
 
 	IplImage *src = cvCloneImage(&src_data);
 
+	Point seed = Point(touchPts[2*(touchPointsCount-1)],touchPts[2*(touchPointsCount-1)+1]);
+	int g_nFillMode = 2;//漫水填充的模式,使用渐变、浮动范围的漫水填充
+	int g_nLowDifference = 3+level/10, g_nUpDifference = 4;//负差最大值、正差最大值
+	int g_nConnectivity = 4;//表示floodFill函数标识符低八位的连通值
+	int g_nNewMaskVal = 255;//新的重新绘制的像素值
+	int LowDifference = g_nFillMode == 0 ? 0 : g_nLowDifference;//空范围的漫水填充，此值设为0，否则设为全局的g_nLowDifference
+	int UpDifference = g_nFillMode == 0 ? 0 : g_nUpDifference;//空范围的漫水填充，此值设为0，否则设为全局的g_nUpDifference
+	Rect ccomp;
+
 	IplImage* dst = cvCreateImage(cvGetSize(src), src->depth, 3);
+	IplImage* color = cvCreateImage(cvGetSize(src), src->depth, 3);
+	cvCvtColor(src,color,CV_BGRA2BGR);
+	Mat dst_mat(color,0);//目标图的赋值
+	int area;
+
 	IplImage* show = cvCreateImage(cvGetSize(src), src->depth, src->nChannels);
-	IplImage* hsv = cvCreateImage(cvGetSize(src), src->depth, 3);
+	IplImage* out = cvCreateImage(cvGetSize(src), src->depth, src->nChannels);
+	//IplImage* hsv = cvCreateImage(cvGetSize(src), src->depth, 3);
 	CvSize size_src = cvGetSize(src);
 	IplImage* maskImage = cvCreateImage(cvGetSize(src), src->depth,1);
 	IplImage* mask_inv = cvCreateImage(cvSize(size_src.width, size_src.height),
@@ -64,12 +82,11 @@ JNIEXPORT jintArray JNICALL Java_com_puzzleworld_onecolor_ImageProcesser_ImgFun(
 			src->depth, 1);
 	IplImage* gray_mask = cvCreateImage(cvSize(size_src.width, size_src.height),
 			src->depth, 1);
-	IplImage* h_plane = cvCreateImage(cvSize(size_src.width, size_src.height),
+	IplImage* dilate_mask = cvCreateImage(cvSize(size_src.width, size_src.height),
 			src->depth, 1);
-	IplImage* s = cvCreateImage(cvSize(size_src.width, size_src.height),
-			src->depth, 1);
-	IplImage* v = cvCreateImage(cvSize(size_src.width, size_src.height),
-			src->depth, 1);
+	//IplImage* h_plane = cvCreateImage(cvSize(size_src.width, size_src.height),src->depth, 1);
+	//IplImage* s = cvCreateImage(cvSize(size_src.width, size_src.height),src->depth, 1);
+	//IplImage* v = cvCreateImage(cvSize(size_src.width, size_src.height),src->depth, 1);
 	IplImage* r = cvCreateImage(cvSize(size_src.width, size_src.height),
 			src->depth, 1);
 	IplImage* g = cvCreateImage(cvSize(size_src.width, size_src.height),
@@ -88,15 +105,30 @@ JNIEXPORT jintArray JNICALL Java_com_puzzleworld_onecolor_ImageProcesser_ImgFun(
 
 	CvSeq* contours = 0;
 
-	cvCvtColor(src, gray, CV_BGR2GRAY);
+	//Mat g_maskImage(maskImage,0);
 
-	cvCvtColor(src, hsv, CV_BGR2HSV_FULL);//CV_RGB2HSV
+	Mat g_maskImage;
+	g_maskImage.create(size_src.height+2, size_src.width+2, CV_8UC1);//利用image0的尺寸来初始化掩膜mask
 
-	cvSplit(hsv, h_plane, s, v, 0);
+	area = floodFill(dst_mat, g_maskImage, seed, cvScalar(255), &ccomp, Scalar(LowDifference, LowDifference, LowDifference),
+		Scalar(UpDifference, UpDifference, UpDifference), flags);
 
-	cvSet2D(maskImage,touchPts[1],touchPts[0],cvScalar(255));//传入坐标设在这里，这两个100,100
 
-	Grow(h_plane,maskImage,level);//传入的level设在这里，
+	cvCvtColor(color, gray, CV_BGR2GRAY);
+
+	//cvCvtColor(color, hsv, CV_BGR2HSV_FULL);//CV_RGB2HSV
+
+	//cvSplit(hsv, h_plane, s, v, 0);
+
+	//cvCvtColor(color, h_plane, CV_BGR2GRAY);
+
+	//cvSet2D(maskImage,touchPts[2*(touchPointsCount-1)+1],touchPts[2*(touchPointsCount-1)],cvScalar(255));//传入坐标设在这里，这两个100,100
+	IplImage temp = IplImage(g_maskImage);
+	IplImage *mask_ff = &temp;
+	cvSetImageROI(mask_ff,cvRect(2,2,size_src.width,size_src.height));
+	cvCopy(mask_ff,maskImage);
+	cvResetImageROI(mask_ff);
+	Grow(gray,maskImage,level);//传入的level设在这里，
 
 	cvFindContours(maskImage, storage, &contours, sizeof(CvContour),
 			CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE); //CV_RETR_CCOMP,
@@ -109,23 +141,48 @@ JNIEXPORT jintArray JNICALL Java_com_puzzleworld_onecolor_ImageProcesser_ImgFun(
 				CV_FILLED, 8);
 	}
 	*/
-	cvDilate(maskImage,maskImage,structure,1);
-	cvErode(maskImage,maskImage,structure,1);
-	cvCopy(src, show, maskImage);
+	//cvDilate(maskImage,maskImage,structure,2);
+	//cvErode(maskImage,maskImage,structure,2);
 
-	cvThreshold(maskImage, mask_inv, 1, 128, CV_THRESH_BINARY_INV);
 
-	cvCopy(gray, gray_mask, mask_inv);
-
-	//cvDilate()
-
-	//bgBlur = 1;
 	if(bgBlur == 1)
 	{
-		cvSmooth(gray_mask,gray_mask,CV_BLUR,11,11,0,0);
+		cvDilate(maskImage,maskImage,structure,1);
+		cvErode(maskImage,maskImage,structure,2);
+	}
+	else
+	{
+
 	}
 
 
+	if(bgBlur == 1)
+	{
+		//cvErode(maskImage,maskImage,structure,2);
+		cvCopy(src, show, maskImage);
+
+		cvThreshold(maskImage, mask_inv, 1, 128, CV_THRESH_BINARY_INV);
+
+		cvZero(dilate_mask);
+		for(int i =0;i<3;i++)
+		{
+			cvCopy(maskImage,dilate_mask);
+			cvDilate(dilate_mask,dilate_mask,structure,i*2);
+			cvThreshold(dilate_mask, mask_inv, 1, 128, CV_THRESH_BINARY_INV);
+			cvCopy(gray, gray_mask, mask_inv);
+			cvSmooth(gray_mask,gray_mask,CV_BLUR,11+2*i,11+2*i,2,2);//CV_BLUR
+		}
+
+	}
+	else
+	{
+		cvCopy(src, show, maskImage);
+
+		cvThreshold(maskImage, mask_inv, 1, 128, CV_THRESH_BINARY_INV);
+
+		cvZero(dilate_mask);
+		cvCopy(gray, gray_mask, mask_inv);
+	}
 
 	Mat mat_r(r, 0);
 	Mat mat_g(g, 0);
@@ -163,6 +220,9 @@ JNIEXPORT jintArray JNICALL Java_com_puzzleworld_onecolor_ImageProcesser_ImgFun(
 
     cvMerge(b,g,r,0,show);
 
+    //cvSmooth(show,show,CV_BLUR);//CV_BLUR
+
+
 	uchar* ptr = imgData.ptr(0);
 
 	for (int i = 0; i < h; i++)
@@ -184,18 +244,21 @@ JNIEXPORT jintArray JNICALL Java_com_puzzleworld_onecolor_ImageProcesser_ImgFun(
 	cvReleaseImage(&src);
 	cvReleaseImage(&dst);
 	cvReleaseImage(&show);
-	cvReleaseImage(&hsv);
+	//cvReleaseImage(&hsv);
 	cvReleaseImage(&maskImage);
 	cvReleaseImage(&mask_inv);
 	cvReleaseImage(&gray);
 	cvReleaseImage(&gray_dst);
 	cvReleaseImage(&gray_mask);
-	cvReleaseImage(&h_plane);
-	cvReleaseImage(&s);
-	cvReleaseImage(&v);
+	//cvReleaseImage(&h_plane);
+	cvReleaseImage(&color);
+	//cvReleaseImage(&s);
+	//cvReleaseImage(&v);
+	cvReleaseImage(&dilate_mask);
 	cvReleaseImage(&r);
 	cvReleaseImage(&g);
 	cvReleaseImage(&b);
+	cvReleaseImage(&out);
 	cvReleaseStructuringElement(&structure);
 	return result;
 }
