@@ -471,7 +471,6 @@ public class ProcessActivity extends Activity {
             currentSelectedColor.setBackground(bgShape);
             currentSelectedColor = null;
         }
-        pd.dismiss();
     }
 
     @Override
