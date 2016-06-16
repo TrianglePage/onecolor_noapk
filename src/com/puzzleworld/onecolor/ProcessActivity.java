@@ -92,7 +92,7 @@ public class ProcessActivity extends Activity {
     private ImageView cursor;// 动画图片
     private TextView t1, t2, t3, t4;// 页卡头标
     private int currIndex = 0;// 当前页卡编号
-    private ProgressDialog pd;
+    private ProgressDialog pd = null;
     private ShareManager sm;
     private String mMoodString;
 
@@ -179,7 +179,9 @@ public class ProcessActivity extends Activity {
         }
 
         /* 显示ProgressDialog */
-        pd = ProgressDialog.show(ProcessActivity.this, "请稍后", "正在处理……");
+        if (pd == null) {
+            pd = ProgressDialog.show(ProcessActivity.this, "请稍后", "正在处理……");
+        }
         /* 开启一个新线程，在新线程里执行耗时的方法 */
         new Thread(new Runnable() {
             @Override
@@ -217,7 +219,10 @@ public class ProcessActivity extends Activity {
             @Override
             public void handleMessage(Message msg) {
                 if (msg.what == 0) {
-                    pd.dismiss();// 关闭ProgressDialog
+                    if (pd != null) {
+                        pd.dismiss();// 关闭ProgressDialog
+                        pd = null;
+                    }
                     Bitmap bmp = BitmapStore.getBitmapProcessed();
                     if (bmp == null) {
                         Toast.makeText(ProcessActivity.this, "请选择一张图片哦😉", Toast.LENGTH_LONG).show();
