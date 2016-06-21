@@ -85,9 +85,9 @@ public class ImageProcesser {
 	}
 
 	public Bitmap processImage(Bitmap img) {
-		if (mTouchPointsCount == 0) {
-			return img;
-		}
+		//if (mTouchPointsCount == 0) {
+		//	return img;
+		//}
 
 		int w = img.getWidth(), h = img.getHeight();
 		// 获取bitmap像素颜色值存入pix数组，后面传入算法
