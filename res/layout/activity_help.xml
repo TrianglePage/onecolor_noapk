@@ -1,19 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
     android:background="#FFFFFFFF"
     android:orientation="vertical" >
 
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="50dp"
+        android:background="#FF37AA9D"
+        android:orientation="horizontal" >
+
+        <ImageView
+            android:id="@+id/ivChoosepic"
+            android:layout_width="0dp"
+            android:layout_height="fill_parent"
+            android:layout_marginBottom="5dp"
+            android:layout_marginLeft="10dp"
+            android:layout_marginRight="0dp"
+            android:layout_marginTop="5dp"
+            android:layout_weight="0.15"
+            android:scaleType="fitCenter"
+            android:src="@drawable/back" />
+
+        <TextView
+            android:id="@+id/tvSpace"
+            android:layout_width="0dp"
+            android:layout_height="fill_parent"
+            android:layout_weight="0.85"
+            android:paddingLeft="20dp"
+            android:paddingRight="0dp" />
+
+    </LinearLayout>
+        <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:background="#FF37AA9D"
+        android:orientation="horizontal" >
+        
     <EditText
         android:id="@+id/editText1"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
         android:ems="10"
-        android:text="\n\n文案还挺tm难想啊" >
-
-        <requestFocus />
+        android:text="本来想写点帮助，\n结果tmd实在写不下去了，\n就这样吧（ＴДＴ)\n别看了，按返回吧" >
     </EditText>
+
+    </LinearLayout>
+
  
-</FrameLayout>
+</LinearLayout>
